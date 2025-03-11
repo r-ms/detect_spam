@@ -39,18 +39,21 @@ print(f"Using Ollama with model {MODEL_NAME} at {OLLAMA_HOST}")
 
 # Updated prompt template for two-line response
 PROMPT_TEMPLATE = """
-Determine if the following text contains signs of spam. Messages are considered spam if they:
-- Imitate website names but are written with spaces or dots, for example: 'U SBE T. RU'
-- Contain advertising phrases like 'best predictions', 'earn on bets', 'top predictions'
-- Use letter combinations similar to domain names
+Определите, содержит ли следующий текст признаки спама. Сообщения считаются спамом, если они:
+- Имитируют названия веб-сайтов, но написаны с пробелами или точками, например: 'У СБЕ Т. РУ'
+- Содержат рекламные фразы типа 'лучшие прогнозы', 'заработок на ставках', 'топовые предсказания'
+- Используют комбинации букв, похожие на доменные имена
+- Используют транслитерацию (например, 'stavki' вместо 'ставки')
+- Используют русские буквы, визуально похожие на английские (например, 'р' вместо 'p', 'с' вместо 'c')
+- Смешивают русские и английские буквы для обхода фильтров
 
-Respond with EXACTLY TWO LINES:
-- First line: just "true" if the message is spam, or "false" if it is not spam
-- Second line: a brief explanation of why the text is or is not spam
+Ответьте РОВНО ДВУМЯ СТРОКАМИ:
+- Первая строка: только "true", если сообщение является спамом, или "false", если не является
+- Вторая строка: краткое объяснение, почему текст является или не является спамом
 
-Do not include any additional text, explanations, or comments.
+Не включайте никакого дополнительного текста, пояснений или комментариев.
 
-Text to analyze: '{text}'
+Текст для анализа: '{text}'
 """
 
 # Request model
