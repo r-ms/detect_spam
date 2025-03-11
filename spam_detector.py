@@ -9,7 +9,7 @@ from vllm import LLM, SamplingParams
 app = FastAPI(title="Spam Detector API")
 
 # Model configuration
-MODEL_ID = "meta-llama/Llama-3-8B-Instruct"  # Using Llama 3 Instruct model
+MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"  # Using Llama 3 Instruct model
 DEVICE = "cpu"  # Running on CPU
 
 # Initialize model when server starts
