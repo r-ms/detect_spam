@@ -1,0 +1,18 @@
+# Use the official Ollama base image (version pinned to match your 0.5.13 if needed)
+FROM ollama/ollama:latest
+
+# Set working directory where Ollama stores models
+WORKDIR /root/.ollama
+
+# Install any additional dependencies (optional, e.g., for debugging)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Start Ollama temporarily, pull llama3, and stop it
+# This embeds the model in the image
+RUN /bin/bash -c "ollama serve & sleep 10 && ollama pull llama3 && pkill ollama"
+
+# Expose the default Ollama port
+EXPOSE 11434
+
+# Command to run Ollama when the container starts
+ENTRYPOINT ["/bin/ollama", "serve"]
