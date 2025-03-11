@@ -47,5 +47,8 @@ COPY spam_detector.py /app/
 # Expose port for API
 EXPOSE 8040
 
+# Create symlink so python command works
+RUN ln -sf /usr/local/bin/python3.12 /usr/local/bin/python
+
 # Run the service
 CMD ["python", "-m", "uvicorn", "spam_detector:app", "--host", "0.0.0.0", "--port", "8000"]
