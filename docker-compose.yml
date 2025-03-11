@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  spam-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8040:8000"  # Maps container port 8000 to host port 8040
+    volumes:
+      - ./:/app  # Mount current directory to /app in container
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      # Add any additional environment variables your service needs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s  # Give the model time to load before checking health
