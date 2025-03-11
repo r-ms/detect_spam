@@ -4,11 +4,12 @@ services:
   ollama:
     image: ollama/ollama:latest
     volumes:
-      - ./ollama_data:/root/.ollama
+      - ollama_data:/root/.ollama  # Named volume for persistence
     ports:
       - "11434:11434"
     restart: unless-stopped
-    command: serve
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3 && wait"]
+    # Ensures the model is pulled on startup if not already present
 
   spamdetector:
     build:
@@ -24,3 +25,13 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama
+    # Adding a healthcheck to ensure Ollama is ready
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://ollama:11434"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Define named volume
+volumes:
+  ollama_data:
