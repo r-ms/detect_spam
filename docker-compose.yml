@@ -5,7 +5,6 @@ services:
     build:
       context: .                    # Directory containing Dockerfile.ollama
       dockerfile: Dockerfile.ollama # Name of the Dockerfile
-      target: ollama-with-llama3    # Optional: stage name (not needed here)
     image: ollama-with-llama3:latest # Name the built image
     volumes:
       - ollama_data:/root/.ollama    # Persistence for flexibility
@@ -27,11 +26,6 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://ollama:11434"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   ollama_data:
