@@ -53,6 +53,9 @@ RUN pip install --no-cache-dir huggingface_hub transformers accelerate
 # Install additional libraries
 RUN pip install --no-cache-dir fastapi uvicorn pydantic
 
+# Add caching
+RUN pip install --no-cache-dir diskcache
+
 # Copy script to container
 COPY spam_detector.py /app/
 

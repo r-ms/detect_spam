@@ -1,13 +1,20 @@
 import os
 import json
+import hashlib
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from huggingface_hub import login
+from diskcache import Cache
+import tempfile
 
 # Initialize FastAPI
 app = FastAPI(title="Spam Detector API")
+
+# Initialize cache in a temporary directory to avoid persistence
+cache = Cache(directory=tempfile.mkdtemp())
+print(f"Cache initialized in temporary directory: {cache.directory}")
 
 # Model configuration
 MODEL_ID = os.environ.get("MODEL_ID", "meta-llama/Llama-3-8B-Instruct")  # Using Llama 3 Instruct model
@@ -43,21 +50,18 @@ print("Model loaded successfully!")
 
 # Prompt template
 PROMPT_TEMPLATE = """
-Determine if the following text contains signs of spam. Messages are considered spam if they: 
-- Imitate website names but are written with spaces or dots, for example: "U SBE T. RU" 
-- Contain advertising phrases like "best predictions", "earn on bets", "top predictions" 
-- Use letter combinations similar to domain names 
+Determine if the following text contains signs of spam. Messages are considered spam if they:
+- Imitate website names but are written with spaces or dots, for example: 'U SBE T. RU'
+- Contain advertising phrases like 'best predictions', 'earn on bets', 'top predictions'
+- Use letter combinations similar to domain names
 
-Do not provide reasoning, only response with one answer with valid JSON with the schema:
-{{
-"is_spam": true/false,
-"reason": "Brief explanation of why the text is classified as spam (or not spam)"
-}}
+Respond only with a single valid JSON object using this exact schema, and do not include any additional text, explanations, or comments outside the JSON:
+{
+'is_spam': true/false,
+'reason': 'Brief explanation of why the text is classified as spam (or not spam)'
+}
 
-Text to analyze: 
-"{text}"
-
-Answer:
+Text to analyze: '{text}'
 """
 
 # Request model
@@ -68,13 +72,48 @@ class SpamCheckRequest(BaseModel):
 class SpamCheckResponse(BaseModel):
     is_spam: bool
     reason: str
+    cached: bool = False
+
+def get_cache_key(text: str) -> str:
+    """Generate a cache key for the input text."""
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+def extract_json_response(response_text: str) -> Dict[str, Any]:
+    """Extract JSON response from model output."""
+    json_start = response_text.find('{')
+    json_end = response_text.rfind('}') + 1
+    
+    if json_start >= 0 and json_end > json_start:
+        json_text = response_text[json_start:json_end]
+        try:
+            response_json = json.loads(json_text)
+            if "is_spam" in response_json and "reason" in response_json:
+                return response_json
+        except json.JSONDecodeError:
+            pass
+    
+    # Fallback heuristic
+    is_spam = "true" in response_text.lower() and "is_spam" in response_text.lower()
+    return {
+        "is_spam": is_spam,
+        "reason": "Failed to get structured response from model, using heuristic instead."
+    }
 
 @app.post("/check_spam", response_model=SpamCheckResponse)
 async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
+    # Generate cache key
+    cache_key = get_cache_key(request.text)
+    
+    # Check if response is in cache
+    cached_response = cache.get(cache_key)
+    if cached_response is not None:
+        print(f"Cache hit for request: {request.text[:50]}...")
+        return {**cached_response, "cached": True}
+    
+    print(f"Cache miss for request: {request.text[:50]}...")
+    
     # Format the prompt
     prompt = PROMPT_TEMPLATE.format(text=request.text)
-
-    print(f"Got request: {request.text}")
     
     try:
         # Generate response using transformers pipeline
@@ -84,47 +123,45 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
         response_text = generated_text[len(prompt):].strip()
         print(f"LLM Response: {response_text}")
         
-        # Try to parse JSON from the response
-        try:
-            # Find JSON object in the response
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
-            
-            if json_start >= 0 and json_end > json_start:
-                json_text = response_text[json_start:json_end]
-                response_json = json.loads(json_text)
-                
-                # Check if required fields are present
-                if "is_spam" not in response_json or "reason" not in response_json:
-                    raise ValueError("Incomplete response from model")
-                    
-                return {
-                    "is_spam": response_json["is_spam"],
-                    "reason": response_json["reason"]
-                }
-            else:
-                raise ValueError("No JSON found in response")
-                
-        except (json.JSONDecodeError, ValueError) as e:
-            # If JSON parsing fails, try to extract the answer from the text
-            print(f"Failed to parse JSON from response: {response_text}")
-            print(f"Error: {str(e)}")
-            
-            # Simplified fallback: check for key words
-            is_spam = "true" in response_text.lower() and "is_spam" in response_text.lower()
-            
-            return {
-                "is_spam": is_spam,
-                "reason": "Failed to get structured response from model, using heuristic instead."
-            }
+        # Extract JSON response
+        result = extract_json_response(response_text)
+        
+        # Store in cache
+        cache.set(cache_key, result)
+        
+        # Return with cached=False flag
+        return {**result, "cached": False}
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
-# Health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "model": MODEL_ID}
+    return {
+        "status": "ok", 
+        "model": MODEL_ID,
+        "cache_info": {
+            "size": len(cache),
+            "directory": cache.directory,
+            "in_memory": True
+        }
+    }
+
+@app.get("/cache/stats")
+async def cache_stats():
+    """Get cache statistics."""
+    return {
+        "size": len(cache),
+        "hits": cache.stats(enable=True)['hits'],
+        "misses": cache.stats(enable=True)['misses'],
+        "directory": cache.directory
+    }
+
+@app.delete("/cache/clear")
+async def clear_cache():
+    """Clear the cache."""
+    cache.clear()
+    return {"status": "Cache cleared", "size": len(cache)}
 
 # Run the server
 if __name__ == "__main__":
