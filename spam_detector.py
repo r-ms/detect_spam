@@ -48,7 +48,7 @@ Determine if the following text contains signs of spam. Messages are considered 
 - Contain advertising phrases like "best predictions", "earn on bets", "top predictions" 
 - Use letter combinations similar to domain names 
 
-Do not provide reasoning, only response in valid JSON with this schema:
+Do not provide reasoning, only response with one answer with valid JSON with the schema:
 {{
 "is_spam": true/false,
 "reason": "Brief explanation of why the text is classified as spam (or not spam)"
@@ -56,6 +56,8 @@ Do not provide reasoning, only response in valid JSON with this schema:
 
 Text to analyze: 
 "{text}"
+
+Answer:
 """
 
 # Request model
