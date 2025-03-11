@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-
 # Download and install Python 3.12
 WORKDIR /tmp
 RUN wget https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz \
@@ -48,8 +47,8 @@ RUN python --version && pip --version
 # Create app directory
 WORKDIR /app
 
-# Install vllm for CPU
-RUN pip install --no-cache-dir vllm
+# Install Hugging Face hub and transformers instead of vllm
+RUN pip install --no-cache-dir huggingface_hub transformers accelerate
 
 # Install additional libraries
 RUN pip install --no-cache-dir fastapi uvicorn pydantic
@@ -59,6 +58,9 @@ COPY spam_detector.py /app/
 
 # Expose port for API
 EXPOSE 8040
+
+# Set environment variable placeholder for HF token
+ENV HF_TOKEN=""
 
 # Run the service
 CMD ["python", "spam_detector.py"]

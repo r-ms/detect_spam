@@ -3,7 +3,7 @@ import json
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from vllm import LLM, SamplingParams
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from huggingface_hub import login
 
 # Initialize FastAPI
@@ -24,24 +24,22 @@ else:
 
 # Initialize model when server starts
 print(f"Loading model {MODEL_ID} on {DEVICE}...")
-# Add specific configurations for CPU usage
-llm = LLM(
-    model=MODEL_ID, 
-    tensor_parallel_size=1, 
-    device=DEVICE,
-    max_model_len=4096,      # Set a smaller context length to avoid OOM
-    enforce_eager=True,      # Use eager mode for CPU
-    trust_remote_code=True,  # Required for some models
-    dtype="float32"          # Use float32 for CPU compatibility
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    device_map=DEVICE,
+    low_cpu_mem_usage=True,
+    torch_dtype="auto"
+)
+generator = pipeline(
+    "text-generation",
+    model=model,
+    tokenizer=tokenizer,
+    max_new_tokens=200,
+    temperature=0.1,
+    do_sample=True
 )
 print("Model loaded successfully!")
-
-# Parameters for response generation
-sampling_params = SamplingParams(
-    temperature=0.1,  # Low temperature for more deterministic responses
-    max_tokens=200,
-    stop_token=["</s>"]  # Stop token for Llama 3
-)
 
 # Prompt template
 PROMPT_TEMPLATE = """
@@ -75,27 +73,40 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
     prompt = PROMPT_TEMPLATE.format(text=request.text)
     
     try:
-        # Send request to the model
-        outputs = llm.generate(prompt, sampling_params)
-        generated_text = outputs[0].outputs[0].text.strip()
+        # Generate response using transformers pipeline
+        generated_text = generator(prompt, max_new_tokens=200, temperature=0.1)[0]['generated_text']
+        
+        # Extract only the generated part (not the prompt)
+        response_text = generated_text[len(prompt):].strip()
         
         # Try to parse JSON from the response
         try:
-            response_json = json.loads(generated_text)
-            # Check if required fields are present
-            if "is_spam" not in response_json or "reason" not in response_json:
-                raise ValueError("Incomplete response from model")
+            # Find JSON object in the response
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_text = response_text[json_start:json_end]
+                response_json = json.loads(json_text)
                 
-            return {
-                "is_spam": response_json["is_spam"],
-                "reason": response_json["reason"]
-            }
-        except json.JSONDecodeError:
+                # Check if required fields are present
+                if "is_spam" not in response_json or "reason" not in response_json:
+                    raise ValueError("Incomplete response from model")
+                    
+                return {
+                    "is_spam": response_json["is_spam"],
+                    "reason": response_json["reason"]
+                }
+            else:
+                raise ValueError("No JSON found in response")
+                
+        except (json.JSONDecodeError, ValueError) as e:
             # If JSON parsing fails, try to extract the answer from the text
-            print(f"Failed to parse JSON from response: {generated_text}")
+            print(f"Failed to parse JSON from response: {response_text}")
+            print(f"Error: {str(e)}")
             
             # Simplified fallback: check for key words
-            is_spam = "true" in generated_text.lower() and "is_spam" in generated_text.lower()
+            is_spam = "true" in response_text.lower() and "is_spam" in response_text.lower()
             
             return {
                 "is_spam": is_spam,
