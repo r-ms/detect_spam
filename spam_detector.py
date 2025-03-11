@@ -48,7 +48,7 @@ Determine if the following text contains signs of spam. Messages are considered 
 - Contain advertising phrases like "best predictions", "earn on bets", "top predictions" 
 - Use letter combinations similar to domain names 
 
-The answer must be in JSON format: 
+Do not provide reasoning, only response in valid JSON with this schema:
 {{
 "is_spam": true/false,
 "reason": "Brief explanation of why the text is classified as spam (or not spam)"
