@@ -71,6 +71,8 @@ class SpamCheckResponse(BaseModel):
 async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
     # Format the prompt
     prompt = PROMPT_TEMPLATE.format(text=request.text)
+
+    print(f"Got request: {request.text}")
     
     try:
         # Generate response using transformers pipeline
