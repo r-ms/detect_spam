@@ -34,16 +34,25 @@ RUN wget https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz \
     && rm -rf Python-3.12.0 Python-3.12.0.tgz
 
 # Install pip and upgrade it
-RUN python3.12 -m ensurepip && pip3 install --upgrade pip
+RUN python3.12 -m ensurepip && python3.12 -m pip install --upgrade pip
 
-# Use Python 3 as default
-RUN ln -s /usr/bin/python3 /usr/bin/python
+# Create proper symlinks for Python
+RUN ln -sf /usr/local/bin/python3.12 /usr/local/bin/python3 && \
+    ln -sf /usr/local/bin/python3 /usr/local/bin/python && \
+    ln -sf /usr/local/bin/pip3.12 /usr/local/bin/pip3 && \
+    ln -sf /usr/local/bin/pip3 /usr/local/bin/pip
+
+# Verify Python installation
+RUN python --version && pip --version
+
+# Create app directory
+WORKDIR /app
 
 # Install vllm for CPU
-RUN pip3 install --no-cache-dir vllm
+RUN pip install --no-cache-dir vllm
 
 # Install additional libraries
-RUN pip3 install --no-cache-dir fastapi uvicorn pydantic
+RUN pip install --no-cache-dir fastapi uvicorn pydantic
 
 # Copy script to container
 COPY spam_detector.py /app/
