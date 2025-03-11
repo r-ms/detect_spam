@@ -81,7 +81,7 @@ def parse_two_line_response(response_text: str) -> Dict[str, Any]:
         reason = clean_lines[1]
         
         # Parse the first line as boolean
-        is_spam = (is_spam_text == "true") or (reason.lower() == 'false')
+        is_spam = (is_spam_text == "true") and (reason.lower() != 'false')
         
         return {
             "is_spam": is_spam,
