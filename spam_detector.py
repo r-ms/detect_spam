@@ -48,7 +48,7 @@ Determine if the following text contains signs of spam. Messages are considered 
 - Contain advertising phrases like "best predictions", "earn on bets", "top predictions" 
 - Use letter combinations similar to domain names 
 
-The answer should be in JSON format: 
+The answer must be in JSON format: 
 {{
 "is_spam": true/false,
 "reason": "Brief explanation of why the text is classified as spam (or not spam)"
@@ -78,6 +78,7 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
         
         # Extract only the generated part (not the prompt)
         response_text = generated_text[len(prompt):].strip()
+        print(f"LLM Response: {response_text}")
         
         # Try to parse JSON from the response
         try:

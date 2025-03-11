@@ -59,8 +59,5 @@ COPY spam_detector.py /app/
 # Expose port for API
 EXPOSE 8040
 
-# Set environment variable placeholder for HF token
-ENV HF_TOKEN=""
-
 # Run the service
 CMD ["python", "spam_detector.py"]
