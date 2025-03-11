@@ -1,11 +1,10 @@
 import os
 import json
 import hashlib
-from typing import Dict, Any
+import requests
+from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from huggingface_hub import login
 from diskcache import Cache
 import tempfile
 
@@ -16,37 +15,28 @@ app = FastAPI(title="Spam Detector API")
 cache = Cache(directory=tempfile.mkdtemp())
 print(f"Cache initialized in temporary directory: {cache.directory}")
 
-# Model configuration
-MODEL_ID = os.environ.get("MODEL_ID", "meta-llama/Llama-3-8B-Instruct")  # Using Llama 3 Instruct model
-DEVICE = os.environ.get("DEVICE", "cpu")  # Running on CPU
+# Ollama configuration
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+MODEL_NAME = os.environ.get("MODEL_NAME", "llama3")
 
-# Login to Hugging Face if token is provided
-hf_token = os.environ.get("HF_TOKEN")
-if hf_token:
-    print("Logging in to Hugging Face with provided token...")
-    login(token=hf_token)
-    print("Successfully logged in to Hugging Face")
-else:
-    print("Warning: HF_TOKEN not provided. Access to gated models may be restricted.")
+# Check if Ollama is available
+try:
+    response = requests.get(f"{OLLAMA_HOST}/api/tags")
+    if response.status_code == 200:
+        models = response.json().get("models", [])
+        model_names = [model.get("name") for model in models]
+        if MODEL_NAME in model_names:
+            print(f"Found {MODEL_NAME} in available models: {model_names}")
+        else:
+            print(f"Warning: {MODEL_NAME} not found in available models: {model_names}")
+            print(f"You may need to run: ollama pull {MODEL_NAME}")
+    else:
+        print(f"Warning: Could not connect to Ollama at {OLLAMA_HOST}")
+except Exception as e:
+    print(f"Error connecting to Ollama: {str(e)}")
+    print(f"Make sure Ollama is running and accessible at {OLLAMA_HOST}")
 
-# Initialize model when server starts
-print(f"Loading model {MODEL_ID} on {DEVICE}...")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_ID,
-    device_map=DEVICE,
-    low_cpu_mem_usage=True,
-    torch_dtype="auto"
-)
-generator = pipeline(
-    "text-generation",
-    model=model,
-    tokenizer=tokenizer,
-    max_new_tokens=200,
-    temperature=0.1,
-    do_sample=True
-)
-print("Model loaded successfully!")
+print(f"Using Ollama with model {MODEL_NAME} at {OLLAMA_HOST}")
 
 # Prompt template
 PROMPT_TEMPLATE = """
@@ -116,11 +106,22 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
     prompt = PROMPT_TEMPLATE.replace("{text}", request.text)
     
     try:
-        # Generate response using transformers pipeline
-        generated_text = generator(prompt, max_new_tokens=200, temperature=0.1)[0]['generated_text']
+        # Generate response using Ollama API
+        payload = {
+            "model": MODEL_NAME,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.1,
+            "stream": False
+        }
         
-        # Extract only the generated part (not the prompt)
-        response_text = generated_text[len(prompt):].strip()
+        response = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        
+        # Extract response from Ollama
+        response_json = response.json()
+        response_text = response_json.get("message", {}).get("content", "")
         print(f"LLM Response: {response_text}")
         
         # Extract JSON response
@@ -133,13 +134,25 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
         return {**result, "cached": False}
             
     except Exception as e:
+        print(f"Error calling Ollama API: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 @app.get("/health")
 async def health_check():
+    # Check Ollama status
+    ollama_status = "unknown"
+    try:
+        response = requests.get(f"{OLLAMA_HOST}/api/tags")
+        if response.status_code == 200:
+            ollama_status = "ok"
+    except Exception:
+        ollama_status = "error"
+    
     return {
         "status": "ok", 
-        "model": MODEL_ID,
+        "model": MODEL_NAME,
+        "ollama_host": OLLAMA_HOST,
+        "ollama_status": ollama_status,
         "cache_info": {
             "size": len(cache),
             "directory": cache.directory,

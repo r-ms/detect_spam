@@ -1,13 +1,13 @@
 # Spam Detection Service
 
-A containerized service that detects spam messages using the Llama 3 language model via VLLM.
+A containerized service that detects spam messages using the Llama 3 language model via Ollama.
 
 ## Features
 
 - API endpoint for spam detection
-- Uses Llama 3 8B Instruct model
-- Runs on CPU
-- Containerized with Docker and Docker Compose
+- Uses Ollama to host Llama 3 model locally
+- Fully containerized with Docker and Docker Compose
+- Response caching for improved performance
 
 ## Getting Started
 
@@ -24,13 +24,12 @@ A containerized service that detects spam messages using the Llama 3 language mo
    cd spam-detector
    ```
 
-2. Configure environment variables:
+2. Configure environment variables (optional):
    ```bash
    # Copy the sample env file
    cp .env.sample .env
    
-   # Edit the .env file with your settings
-   # Especially set your Hugging Face token
+   # Edit the .env file if you need to customize settings
    nano .env
    ```
 
@@ -38,6 +37,7 @@ A containerized service that detects spam messages using the Llama 3 language mo
    ```bash
    docker-compose up -d
    ```
+   The first run will automatically download the Llama 3 model. This may take some time depending on your internet connection.
 
 4. Check if the service is running:
    ```bash
