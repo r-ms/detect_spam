@@ -41,7 +41,6 @@ print(f"Using Ollama with model {MODEL_NAME} at {OLLAMA_HOST}")
 PROMPT_TEMPLATE = """
 Determine if the following text contains signs of spam. Messages are considered spam if they:
 - Imitate website names but are written with spaces or dots, for example: 'B ET WIN. RU'
-- Mix Russian and English letters to bypass filters
 - Contain profanity or obscene language
 - Use letter combinations similar to domain names
 
