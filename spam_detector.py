@@ -113,7 +113,7 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
     print(f"Cache miss for request: {request.text[:50]}...")
     
     # Format the prompt
-    prompt = PROMPT_TEMPLATE.format(text=request.text)
+    prompt = PROMPT_TEMPLATE.replace("{text}", request.text)
     
     try:
         # Generate response using transformers pipeline
