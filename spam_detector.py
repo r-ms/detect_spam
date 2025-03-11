@@ -24,7 +24,16 @@ else:
 
 # Initialize model when server starts
 print(f"Loading model {MODEL_ID} on {DEVICE}...")
-llm = LLM(model=MODEL_ID, tensor_parallel_size=1, device=DEVICE)
+# Add specific configurations for CPU usage
+llm = LLM(
+    model=MODEL_ID, 
+    tensor_parallel_size=1, 
+    device=DEVICE,
+    max_model_len=4096,      # Set a smaller context length to avoid OOM
+    enforce_eager=True,      # Use eager mode for CPU
+    trust_remote_code=True,  # Required for some models
+    dtype="float32"          # Use float32 for CPU compatibility
+)
 print("Model loaded successfully!")
 
 # Parameters for response generation
