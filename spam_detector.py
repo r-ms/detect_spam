@@ -46,8 +46,8 @@ PROMPT_TEMPLATE = """
 - Используют комбинации букв, похожие на доменные имена
 
 Ответьте РОВНО ДВУМЯ СТРОКАМИ:
-- Первая строка: только "true", если сообщение является спамом, или "false", если не является
-- Вторая строка: обьяснение сделанного вывода
+- Первая строка: только "true", если сообщение содержит признаки спами
+- Вторая строка: признак, который содержит или "FALSE"
 
 Не включайте никакого дополнительного текста, пояснений или комментариев.
 
@@ -81,7 +81,7 @@ def parse_two_line_response(response_text: str) -> Dict[str, Any]:
         reason = clean_lines[1]
         
         # Parse the first line as boolean
-        is_spam = is_spam_text == "true"
+        is_spam = (is_spam_text == "true") or (reason.lower() == 'false')
         
         return {
             "is_spam": is_spam,
