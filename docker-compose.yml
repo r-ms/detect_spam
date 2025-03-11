@@ -10,5 +10,7 @@ services:
     volumes:
       - ./:/app
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}

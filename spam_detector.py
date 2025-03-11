@@ -4,13 +4,23 @@ from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from vllm import LLM, SamplingParams
+from huggingface_hub import login
 
 # Initialize FastAPI
 app = FastAPI(title="Spam Detector API")
 
 # Model configuration
-MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"  # Using Llama 3 Instruct model
-DEVICE = "cpu"  # Running on CPU
+MODEL_ID = os.environ.get("MODEL_ID", "meta-llama/Llama-3-8B-Instruct")  # Using Llama 3 Instruct model
+DEVICE = os.environ.get("DEVICE", "cpu")  # Running on CPU
+
+# Login to Hugging Face if token is provided
+hf_token = os.environ.get("HF_TOKEN")
+if hf_token:
+    print("Logging in to Hugging Face with provided token...")
+    login(token=hf_token)
+    print("Successfully logged in to Hugging Face")
+else:
+    print("Warning: HF_TOKEN not provided. Access to gated models may be restricted.")
 
 # Initialize model when server starts
 print(f"Loading model {MODEL_ID} on {DEVICE}...")

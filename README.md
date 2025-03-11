@@ -24,12 +24,22 @@ A containerized service that detects spam messages using the Llama 3 language mo
    cd spam-detector
    ```
 
-2. Start the service:
+2. Configure environment variables:
+   ```bash
+   # Copy the sample env file
+   cp .env.sample .env
+   
+   # Edit the .env file with your settings
+   # Especially set your Hugging Face token
+   nano .env
+   ```
+
+3. Start the service:
    ```bash
    docker-compose up -d
    ```
 
-3. Check if the service is running:
+4. Check if the service is running:
    ```bash
    curl http://localhost:8040/health
    ```
@@ -61,7 +71,7 @@ Response format:
 
 ## License
 
-[Your License]
+This project is licensed under the MIT License 
 
 ## Acknowledgements
 
