@@ -1,8 +1,7 @@
 import os
-import json
 import hashlib
 import requests
-from typing import Dict, Any, List
+from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from diskcache import Cache
@@ -38,18 +37,18 @@ except Exception as e:
 
 print(f"Using Ollama with model {MODEL_NAME} at {OLLAMA_HOST}")
 
-# Prompt template
+# Updated prompt template for two-line response
 PROMPT_TEMPLATE = """
 Determine if the following text contains signs of spam. Messages are considered spam if they:
 - Imitate website names but are written with spaces or dots, for example: 'U SBE T. RU'
 - Contain advertising phrases like 'best predictions', 'earn on bets', 'top predictions'
 - Use letter combinations similar to domain names
 
-Respond only with a single valid JSON object using this exact schema, and do not include any additional text, explanations, or comments outside the JSON:
-{
-'is_spam': true/false,
-'reason': 'Brief explanation of why the text is classified as spam (or not spam)'
-}
+Respond with EXACTLY TWO LINES:
+- First line: just "true" if the message is spam, or "false" if it is not spam
+- Second line: a brief explanation of why the text is or is not spam
+
+Do not include any additional text, explanations, or comments.
 
 Text to analyze: '{text}'
 """
@@ -68,25 +67,32 @@ def get_cache_key(text: str) -> str:
     """Generate a cache key for the input text."""
     return hashlib.md5(text.encode('utf-8')).hexdigest()
 
-def extract_json_response(response_text: str) -> Dict[str, Any]:
-    """Extract JSON response from model output."""
-    json_start = response_text.find('{')
-    json_end = response_text.rfind('}') + 1
+def parse_two_line_response(response_text: str) -> Dict[str, Any]:
+    """Parse the two-line response format."""
+    # Clean and split the response
+    lines = response_text.strip().split('\n')
     
-    if json_start >= 0 and json_end > json_start:
-        json_text = response_text[json_start:json_end]
-        try:
-            response_json = json.loads(json_text)
-            if "is_spam" in response_json and "reason" in response_json:
-                return response_json
-        except json.JSONDecodeError:
-            pass
+    # Extract the first two non-empty lines
+    clean_lines = [line.strip() for line in lines if line.strip()]
     
-    # Fallback heuristic
-    is_spam = "true" in response_text.lower() and "is_spam" in response_text.lower()
+    if len(clean_lines) >= 2:
+        is_spam_text = clean_lines[0].lower()
+        reason = clean_lines[1]
+        
+        # Parse the first line as boolean
+        is_spam = is_spam_text == "true"
+        
+        return {
+            "is_spam": is_spam,
+            "reason": reason
+        }
+    
+    # Fallback for unexpected response format
+    print(f"Warning: Unexpected response format: {response_text}")
+    is_spam = "true" in response_text.lower()
     return {
         "is_spam": is_spam,
-        "reason": "Failed to get structured response from model, using heuristic instead."
+        "reason": "Failed to parse model response, using heuristic instead."
     }
 
 @app.post("/check_spam", response_model=SpamCheckResponse)
@@ -124,8 +130,8 @@ async def check_spam(request: SpamCheckRequest) -> Dict[str, Any]:
         response_text = response_json.get("message", {}).get("content", "")
         print(f"LLM Response: {response_text}")
         
-        # Extract JSON response
-        result = extract_json_response(response_text)
+        # Parse the two-line response
+        result = parse_two_line_response(response_text)
         
         # Store in cache
         cache.set(cache_key, result)
