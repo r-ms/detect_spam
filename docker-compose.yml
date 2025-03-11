@@ -1,8 +1,10 @@
+version: '2'
+
 services:
   ollama:
     image: ollama/ollama:latest
     volumes:
-      - ollama_data:~/detect_spam/.ollama
+      - ./ollama_data:./.ollama
     ports:
       - "11434:11434"
     restart: unless-stopped
@@ -22,6 +24,3 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama
-
-volumes:
-  ollama_data:
